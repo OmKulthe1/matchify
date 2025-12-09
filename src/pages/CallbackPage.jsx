@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -32,8 +32,33 @@ const CallbackPage = () => {
                     console.log("Token exchange result:", data);
 
                     if (data.access_token) {
-                        // TODO: Store token (context or local storage for now) and redirect
                         console.log("Success! Access Token acquired.");
+                        // Start the heavy lifting...
+                        setIsAnalyzing(true);
+
+                        const { fetchUserSpotifyData } = await import('../lib/spotifyData');
+                        const { getDeveloperProfile } = await import('../lib/api');
+                        const { calculateCompatibility } = await import('../lib/logic');
+
+                        // 1. Fetch User Data
+                        const userData = await fetchUserSpotifyData(data.access_token);
+
+                        // 2. Fetch Dev Data
+                        const devData = await getDeveloperProfile();
+
+                        if (!devData) {
+                            // Fallback if dev profile missing in DB (e.g. first run)
+                            alert("Developer profile not found in database. Cannot compare yet!");
+                            navigate('/');
+                            return;
+                        }
+
+                        // 3. Calculate
+                        const result = calculateCompatibility(userData, devData);
+
+                        // 4. Redirect with state
+                        navigate('/result', { state: { result } });
+
                     } else {
                         console.error("Failed to exchange token", data);
                     }
@@ -48,6 +73,8 @@ const CallbackPage = () => {
         }
 
     }, [navigate]);
+
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-bg-dark text-text-primary">
@@ -68,8 +95,8 @@ const CallbackPage = () => {
                     <div className="w-8 h-8 rounded-full bg-brand-primary" />
                 </motion.div>
 
-                <h2 className="text-2xl font-bold">Connecting to Spotify...</h2>
-                <p className="text-text-secondary">Analyzing your music taste</p>
+                <h2 className="text-2xl font-bold">{isAnalyzing ? "Calculating Compatibility..." : "Connecting to Spotify..."}</h2>
+                <p className="text-text-secondary">{isAnalyzing ? "Comparing your music DNA" : "Authenticating securely"}</p>
             </div>
         </div>
     );
