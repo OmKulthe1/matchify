@@ -48,20 +48,26 @@ export const fetchUserSpotifyData = async (accessToken) => {
 
     if (trackIds) {
         const featuresRes = await fetch(`https://api.spotify.com/v1/audio-features?ids=${trackIds}`, { headers });
-        const featuresData = await featuresRes.json();
-        const features = featuresData.audio_features.filter(f => f !== null);
 
-        // Calculate Means
-        if (features.length > 0) {
-            audioFeatures = features.reduce((acc, curr) => ({
-                danceability: acc.danceability + curr.danceability,
-                energy: acc.energy + curr.energy,
-                valence: acc.valence + curr.valence
-            }), { danceability: 0, energy: 0, valence: 0 });
+        if (featuresRes.ok) {
+            const featuresData = await featuresRes.json();
+            const rawFeatures = featuresData.audio_features || [];
+            const features = rawFeatures.filter(f => f !== null);
 
-            audioFeatures.danceability /= features.length;
-            audioFeatures.energy /= features.length;
-            audioFeatures.valence /= features.length;
+            // Calculate Means
+            if (features.length > 0) {
+                audioFeatures = features.reduce((acc, curr) => ({
+                    danceability: acc.danceability + curr.danceability,
+                    energy: acc.energy + curr.energy,
+                    valence: acc.valence + curr.valence
+                }), { danceability: 0, energy: 0, valence: 0 });
+
+                audioFeatures.danceability /= features.length;
+                audioFeatures.energy /= features.length;
+                audioFeatures.valence /= features.length;
+            }
+        } else {
+            console.warn(`Failed to fetch audio features: ${featuresRes.status} ${featuresRes.statusText}`);
         }
     }
 
