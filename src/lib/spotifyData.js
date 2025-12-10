@@ -27,6 +27,60 @@ export const calculateAveragePopularity = (items) => {
     return sum / items.length;
 };
 
+// Internal Helper: Estimate Audio Features from Genres
+const estimateAudioFeaturesFromArtists = (artists) => {
+    // Heuristic Map: Keyword -> { danceability, energy, valence }
+    const GENRE_MAP = {
+        'pop': { d: 0.7, e: 0.7, v: 0.7 },
+        'dance': { d: 0.8, e: 0.8, v: 0.7 },
+        'edm': { d: 0.8, e: 0.9, v: 0.6 },
+        'rap': { d: 0.8, e: 0.7, v: 0.6 },
+        'hip hop': { d: 0.8, e: 0.7, v: 0.6 },
+        'reggaeton': { d: 0.8, e: 0.8, v: 0.8 },
+        'house': { d: 0.8, e: 0.8, v: 0.7 },
+        'techno': { d: 0.7, e: 0.9, v: 0.5 },
+        'rock': { d: 0.4, e: 0.8, v: 0.5 },
+        'metal': { d: 0.3, e: 0.9, v: 0.4 },
+        'punk': { d: 0.5, e: 0.9, v: 0.5 },
+        'r&b': { d: 0.7, e: 0.5, v: 0.6 },
+        'soul': { d: 0.6, e: 0.5, v: 0.6 },
+        'latin': { d: 0.7, e: 0.6, v: 0.7 },
+        'folk': { d: 0.4, e: 0.4, v: 0.5 },
+        'acoustic': { d: 0.4, e: 0.3, v: 0.5 },
+        'classical': { d: 0.2, e: 0.3, v: 0.5 },
+        'ambient': { d: 0.2, e: 0.2, v: 0.5 },
+        'jazz': { d: 0.5, e: 0.4, v: 0.6 },
+        'lo-fi': { d: 0.6, e: 0.3, v: 0.5 },
+        'indie': { d: 0.5, e: 0.6, v: 0.5 },
+        'alternative': { d: 0.5, e: 0.7, v: 0.5 }
+    };
+
+    let totalD = 0, totalE = 0, totalV = 0;
+    let count = 0;
+
+    artists.forEach(artist => {
+        artist.genres.forEach(genre => {
+            const lowerGenre = genre.toLowerCase();
+            // Find first matching key
+            const match = Object.keys(GENRE_MAP).find(key => lowerGenre.includes(key));
+            if (match) {
+                totalD += GENRE_MAP[match].d;
+                totalE += GENRE_MAP[match].e;
+                totalV += GENRE_MAP[match].v;
+                count++;
+            }
+        });
+    });
+
+    if (count === 0) return { danceability: 0.5, energy: 0.5, valence: 0.5 }; // Default
+
+    return {
+        danceability: totalD / count,
+        energy: totalE / count,
+        valence: totalV / count
+    };
+};
+
 // Helper: Fetch User Data from Spotify
 export const fetchUserSpotifyData = async (accessToken) => {
     const headers = { Authorization: `Bearer ${accessToken}` };
@@ -44,32 +98,16 @@ export const fetchUserSpotifyData = async (accessToken) => {
     // 3. Get Audio Features for those tracks
     // Spotify allows comma-separated IDs, max 100
     const trackIds = topTracks.map(t => t.id).join(',');
-    let audioFeatures = { danceability: 0.5, energy: 0.5, valence: 0.5 }; // Defaults
+    // 3. Audio Features (Estimated)
+    // Deprecated API workaround: Estimate based on genre mapping
+    const audioFeatures = estimateAudioFeaturesFromArtists(topArtists);
 
+    /* 
+    // Deprecated Code:
     if (trackIds) {
-        const featuresRes = await fetch(`https://api.spotify.com/v1/audio-features?ids=${trackIds}`, { headers });
-
-        if (featuresRes.ok) {
-            const featuresData = await featuresRes.json();
-            const rawFeatures = featuresData.audio_features || [];
-            const features = rawFeatures.filter(f => f !== null);
-
-            // Calculate Means
-            if (features.length > 0) {
-                audioFeatures = features.reduce((acc, curr) => ({
-                    danceability: acc.danceability + curr.danceability,
-                    energy: acc.energy + curr.energy,
-                    valence: acc.valence + curr.valence
-                }), { danceability: 0, energy: 0, valence: 0 });
-
-                audioFeatures.danceability /= features.length;
-                audioFeatures.energy /= features.length;
-                audioFeatures.valence /= features.length;
-            }
-        } else {
-            console.warn(`Failed to fetch audio features: ${featuresRes.status} ${featuresRes.statusText}`);
-        }
+        ...
     }
+    */
 
     // 4. Transform into our usable format
     return {

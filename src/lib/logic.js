@@ -49,33 +49,45 @@ export const calculateCompatibility = (userData, devData) => {
     // We assume these are pre-calculated frequency maps
     const genreScore = calculateCosineSimilarity(userData.genreVector, devData.genre_vector);
 
-    // 4. Audio Features "Vibe" (25% weight)
+    // 4. Audio Features "Vibe" (25% weight originally)
     // Mean values for: danceability, energy, valence
     const userFeatures = userData.audioFeatures;
     const devFeatures = devData.audio_feature_means;
 
-    const danceSim = calculateNumericSimilarity(userFeatures.danceability, devFeatures.danceability);
-    const energySim = calculateNumericSimilarity(userFeatures.energy, devFeatures.energy);
-    const valenceSim = calculateNumericSimilarity(userFeatures.valence, devFeatures.valence);
+    let vibeScore = 0;
+    const hasVibeData = userFeatures && devFeatures;
 
-    const vibeScore = (danceSim + energySim + valenceSim) / 3;
+    if (hasVibeData) {
+        const danceSim = calculateNumericSimilarity(userFeatures.danceability, devFeatures.danceability);
+        const energySim = calculateNumericSimilarity(userFeatures.energy, devFeatures.energy);
+        const valenceSim = calculateNumericSimilarity(userFeatures.valence, devFeatures.valence);
+        vibeScore = (danceSim + energySim + valenceSim) / 3;
+    }
 
     // 5. Popularity (10% weight) - Max diff is 100
     const popSim = calculateNumericSimilarity(userData.avgPopularity, devData.popularity_mean, 100);
 
     // 6. Final Weighted Score
-    // Weights: Artist (0.3), Genre (0.2), Vibe (0.25), Popularity (0.10)
-    // Missing: Tracks (0.15) - skipped for simplicity or merged into Artist
-    // Adjust weights to sum to 1.0 if tracks are missing, or add track logic.
-    // Let's re-normalize weights to sum to 1.0 without tracks for MVP, or assume 0 for tracks.
-    // Normalized: 0.35, 0.25, 0.30, 0.10
+    // Original Normalized: Artist (0.35), Genre (0.25), Vibe (0.30), Popularity (0.10)
+    // If Vibe is missing (due to deprecation), we redistribute 0.30 weight.
+    // New Weights: Artist (0.50), Genre (0.35), Popularity (0.15)
 
-    const finalScore = (
-        (artistScore * 0.35) +
-        (genreScore * 0.25) +
-        (vibeScore * 0.30) +
-        (popSim * 0.10)
-    );
+    let finalScore;
+
+    if (hasVibeData) {
+        finalScore = (
+            (artistScore * 0.35) +
+            (genreScore * 0.25) +
+            (vibeScore * 0.30) +
+            (popSim * 0.10)
+        );
+    } else {
+        finalScore = (
+            (artistScore * 0.50) +
+            (genreScore * 0.35) +
+            (popSim * 0.15)
+        );
+    }
 
     return {
         score: Math.round(finalScore * 100),
