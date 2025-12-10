@@ -38,7 +38,15 @@ export default async function handler(req, res) {
             body: params
         });
 
-        const data = await response.json();
+        // Handle non-JSON responses from Spotify (e.g. 502 Proxy Error, Service Unavailable)
+        const text = await response.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error('Spotify API returned non-JSON:', text);
+            return res.status(502).json({ error: 'Spotify upstream error', details: text });
+        }
 
         if (data.error) {
             return res.status(400).json(data);

@@ -28,7 +28,15 @@ const CallbackPage = () => {
                         body: JSON.stringify({ code })
                     });
 
-                    const data = await res.json();
+                    const text = await res.text();
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error("Failed to parse server response:", text);
+                        throw new Error("Server returned non-JSON response. See console.");
+                    }
+
                     console.log("Token exchange result:", data);
 
                     if (data.access_token) {
