@@ -56,8 +56,13 @@ const CallbackPage = () => {
                         // 3. Calculate
                         const result = calculateCompatibility(userData, devData);
 
+                        // Debug logging
+                        console.log("Configuration:", { user: userData, dev: devData, result });
+                        setAnalyzedData(userData); // Enable "Update Profile" button in UI if we paused
+
                         // 4. Redirect with state
-                        navigate('/result', { state: { result } });
+                        // We pass userData so ResultPage can offer to "Seed" the DB if needed
+                        navigate('/result', { state: { result, userData } });
 
                     } else {
                         console.error("Failed to exchange token", data);
@@ -74,7 +79,19 @@ const CallbackPage = () => {
 
     }, [navigate]);
 
+    const [analyzedData, setAnalyzedData] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    const handleUpdateProfile = async () => {
+        if (!analyzedData) return;
+        const { updateDeveloperProfile } = await import('../lib/api');
+        const success = await updateDeveloperProfile(analyzedData);
+        if (success) {
+            alert("Profile updated! The next comparison will use YOUR data.");
+            // Optionally force re-run or just reload
+            window.location.href = '/';
+        }
+    };
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-bg-dark text-text-primary">
@@ -97,6 +114,20 @@ const CallbackPage = () => {
 
                 <h2 className="text-2xl font-bold">{isAnalyzing ? "Calculating Compatibility..." : "Connecting to Spotify..."}</h2>
                 <p className="text-text-secondary">{isAnalyzing ? "Comparing your music DNA" : "Authenticating securely"}</p>
+
+                {/* Admin/Debug Control */}
+                {analyzedData && (
+                    <div className="mt-8 p-4 border border-brand-primary/30 rounded-lg bg-bg-card/50 text-center">
+                        <p className="text-sm mb-4 text-text-muted">Detected User Data loaded.</p>
+                        <button
+                            onClick={handleUpdateProfile}
+                            className="px-4 py-2 bg-brand-primary/20 text-brand-primary rounded hover:bg-brand-primary/30 transition-colors text-sm font-medium"
+                        >
+                            Set MY Data as Developer Profile
+                        </button>
+                        <p className="text-xs text-text-muted mt-2">(Use this if you are the owner to seed the DB)</p>
+                    </div>
+                )}
             </div>
         </div>
     );

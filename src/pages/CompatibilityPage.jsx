@@ -82,7 +82,31 @@ const CompatibilityPage = () => {
                     )}
                 </div>
             </div>
-        </div>
+
+
+            {/* Admin Action */}
+            {
+                location.state?.userData && (
+                    <div className="mt-12 text-center">
+                        <button
+                            onClick={async () => {
+                                const { updateDeveloperProfile } = await import('../lib/api');
+                                if (confirm("Are you sure you want to replace the Developer Profile with YOUR current data?")) {
+                                    const success = await updateDeveloperProfile(location.state.userData);
+                                    if (success) {
+                                        alert("Profile Updated! Redirecting to home to start fresh...");
+                                        window.location.href = '/';
+                                    }
+                                }
+                            }}
+                            className="text-xs text-text-muted hover:text-brand-primary transition-colors underline"
+                        >
+                            (Dev Only) Set my data as Developer Profile
+                        </button>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 
