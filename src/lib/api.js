@@ -20,9 +20,15 @@ export const getDeveloperProfile = async () => {
 
 // Admin helper: Update the developer profile with the current user's data
 export const updateDeveloperProfile = async (userData) => {
+    // 1. Fetch existing ID to handle UUID requirements (fixes 'id: 1' error)
+    const { data: existing } = await supabase
+        .from('dev_taste_profile')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
     // Transform JS camelCase to DB snake_case
     const dbPayload = {
-        id: 1, // Assuming singleton row with ID 1
         top_artists: userData.topArtists,
         top_tracks: userData.topTracks,
         genre_vector: userData.genreVector,
@@ -31,13 +37,24 @@ export const updateDeveloperProfile = async (userData) => {
         updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
-        .from('dev_taste_profile')
-        .upsert(dbPayload);
+    let error;
+
+    if (existing) {
+        const { error: err } = await supabase
+            .from('dev_taste_profile')
+            .update(dbPayload)
+            .eq('id', existing.id);
+        error = err;
+    } else {
+        const { error: err } = await supabase
+            .from('dev_taste_profile')
+            .insert(dbPayload);
+        error = err;
+    }
 
     if (error) {
         console.error('Error updating profile:', error);
-        alert('Failed to update profile!');
+        alert(`Failed to update profile: ${error.message}`);
         return false;
     }
     return true;
