@@ -87,12 +87,35 @@ export const fetchUserSpotifyData = async (accessToken) => {
 
     // 1. Get Top Artists
     const artistsRes = await fetch('https://api.spotify.com/v1/me/top/artists?limit=50&time_range=medium_term', { headers });
+
+    if (!artistsRes.ok) {
+        const errorText = await artistsRes.text();
+        console.error("Spotify API Error (Artists):", artistsRes.status, errorText);
+
+        if (artistsRes.status === 403) {
+            // Check if it's the "User not registered in the Developer Dashboard" error
+            if (errorText.includes("User not registered in the Developer Dashboard")) {
+                alert("ACCESS DENIED: Your account is not registered in the Matchify Developer Dashboard.\n\nPlease ask the developer to add your email to the 'Users and Access' list in Spotify for Developers.");
+                window.location.href = '/'; // kick to home
+                throw new Error("User not whitelisted in Spotify Dev Dashboard");
+            }
+        }
+        throw new Error(`Spotify API Error: ${artistsRes.status} ${artistsRes.statusText}`);
+    }
+
     const artistsData = await artistsRes.json();
     const topArtists = artistsData.items || [];
 
     // 2. Get Top Tracks (for audio features)
     const tracksRes = await fetch('https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=medium_term', { headers });
-    const tracksData = await tracksRes.json();
+
+    if (!tracksRes.ok) {
+        console.warn("Failed to fetch top tracks, skipping...", tracksRes.status);
+        // We can continue without tracks if artists worked, but usually if one fails, both fail for auth reasons.
+        // For now, let's just return empty.
+    }
+
+    const tracksData = tracksRes.ok ? await tracksRes.json() : { items: [] };
     const topTracks = tracksData.items || [];
 
     // 3. Get Audio Features for those tracks
